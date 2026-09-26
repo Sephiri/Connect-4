@@ -122,7 +122,27 @@ def winning(state: np.ndarray, game_n: int) -> int:
         return -1 # The board is full, game is a draw
 
     return 0 # Game is not over 
-    
+
+def _ask_player(number: int) -> int:
+    try:
+        choice: int = int(input(
+            f"Choose Player {number}: \n"
+            "1 - Human\n"
+            "2 - MinMax\n"
+            "3 - AlphaBeta\n"
+        ))
+
+        assert 1 <= choice <= 3
+        print("You chose", choice)
+        return choice
+
+    except ValueError:
+        print("Please enter a valid number.\n")
+        return _ask_player(number)
+
+    except AssertionError:
+        print("Please enter 1,2 or 3.\n")
+        return _ask_player(number)
 
 def get_players(game_n: int) -> List[PlayerController]:
     """Gets the two players
@@ -142,9 +162,42 @@ def get_players(game_n: int) -> List[PlayerController]:
     human1: PlayerController = HumanPlayer(1, game_n, heuristic1)
     human2: PlayerController = HumanPlayer(2, game_n, heuristic2)
 
-    # TODO: Implement other PlayerControllers (MinMaxPlayer and AlphaBetaPlayer)
+    # DONE: Implement other PlayerControllers (MinMaxPlayer and AlphaBetaPlayer)
+    depth = 6
+    # MinMaxPlayer
+    
+    minmaxplayer1: PlayerController = MinMaxPlayer(1, game_n, depth, heuristic1)
+    minmaxplayer2: PlayerController = MinMaxPlayer(2, game_n, depth, heuristic2)
 
-    players: List[PlayerController] = [human1, human2]
+    # AlphaBetaPlayer
+
+    alphabetaplayer1: PlayerController = AlphaBetaPlayer(1, game_n, depth, heuristic1)
+    alphabetaplayer2: PlayerController = AlphaBetaPlayer(2, game_n, depth, heuristic2)
+
+    player1value = _ask_player(1)
+    player2value = _ask_player(2)
+
+    match player1value:
+        case 1:
+            player1 = human1
+        case 2:
+            player1 = minmaxplayer1
+        case 3: 
+            player1 = alphabetaplayer1
+        case _:
+            print("Invalid player") 
+
+    match player2value:
+        case 1:
+            player2 = human2
+        case 2:
+            player2 = minmaxplayer2
+        case 3: 
+            player2 = alphabetaplayer2
+        case _:
+            print("Invalid player") 
+
+    players: List[PlayerController] = [player1, player2]
 
     assert players[0].player_id in {1, 2}, 'The player_id of the first player must be either 1 or 2'
     assert players[1].player_id in {1, 2}, 'The player_id of the second player must be either 1 or 2'
