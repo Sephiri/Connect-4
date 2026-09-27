@@ -52,6 +52,21 @@ class PlayerController:
         """
         pass
 
+class Node:
+    """
+    Tree Data structure for MinMax Tree
+    """
+    def __init__(self, board: Board, value: int, move: int | None = None) -> None:
+        """
+        Args:
+            board (Board): current board state
+            value (int): current position evaluated using the heuristic
+            move (int): Which move in which column led to this node
+        """
+        self.board = board
+        self.value = value
+        self.move = move
+        self.children: list["Node"] = []
 
 class MinMaxPlayer(PlayerController):
     """Class for the minmax player using the minmax algorithm
@@ -79,28 +94,60 @@ class MinMaxPlayer(PlayerController):
             int: column to play in
         """
 
-        # TODO: implement minmax algortihm!
-        # INT: use the functions on the 'board' object to produce a new board given a specific move
+        # DONE: implement minmax algortihm!
+        # HINT: use the functions on the 'board' object to produce a new board given a specific move
         # HINT: use the functions on the 'heuristic' object to produce evaluations for the different board states!
         
-        # Example:
-        max_value: float = -np.inf # negative infinity
-        max_move: int = 0
-        for col in range(board.width):
-            if board.is_valid(col):
-                new_board: Board = board.get_new_board(col, self.player_id)
-                value: int = self.heuristic.evaluate_board(self.player_id, new_board)
-                if value > max_value:
-                    max_move = col
-
-        # This returns the same as
-        self.heuristic.get_best_action(self.player_id, board) # Very useful helper function!
-
         # This is obviously not enough (this is depth 1)
         # Your assignment is to create a data structure (tree) to store the gameboards such that you can evaluate a higher depths.
         # Then, use the minmax algorithm to search through this tree to find the best move/action to take!
 
+        root_value = self.heuristic.evaluate_board(self.player_id, board)
+        root = Node(board, root_value)
+
+        self._build_tree(root, 0, self.depth, self.player_id)
+
+        _, max_move = self._minimax(root, True)
         return max_move
+
+    def _build_tree(self, node: Node, current_depth: int, max_depth: int, player_id: int) -> None: 
+        if current_depth == max_depth: 
+            return 
+
+        board = node.board
+
+        for col in range(board.width):
+            if board.is_valid(col):
+                new_board: Board = board.get_new_board(col, player_id)
+                value: int = self.heuristic.evaluate_board(self.player_id, new_board)
+                child = Node(new_board, value, col)
+                node.children.append(child)
+                next_player = 2 if player_id == 1 else 1
+                self._build_tree(child, current_depth +1, max_depth, next_player)
+
+    def _minimax(self, node: Node, maximize: bool) -> tuple[int, int | None]:
+        """
+        Args: 
+            node (Node): current node to calculate the minmax value
+            maximize (bool): True or False whether minimax should maximize or minimize the children's values 
+        Returns: 
+            int: best value based on min or max
+            int: respective column that led to the node with the best value 
+        """
+        if not node.children:
+            return node.value, None
+
+        values = []
+
+        for child in node.children:
+            value, _ = self._minimax(child, not maximize)
+            values.append((value, child.move))
+
+        if maximize:
+            return max(values, key=lambda pair: pair[0])
+        else:
+            return min(values, key=lambda pair: pair[0])
+
     
 
 class AlphaBetaPlayer(PlayerController):
