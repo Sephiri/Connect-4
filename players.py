@@ -175,9 +175,82 @@ class AlphaBetaPlayer(PlayerController):
         Returns:
             int: column to play in
         """
+        # DONE: implement minmax algorithm with alpha beta pruning!
 
-        # TODO: implement minmax algorithm with alpha beta pruning!
-        return 0
+        root_value = self.heuristic.evaluate_board(self.player_id, board)
+        root = Node(board, root_value)
+
+        alpha = -np.inf
+        beta = np.inf
+        
+        _, max_move = self._minimax(root, True, alpha, beta, 0, self.depth, self.player_id,)
+        return max_move
+
+    def _minimax(self, node: Node, maximize: bool, alpha:int, beta:int,  current_depth: int, max_depth: int, player_id: int) -> tuple[int, int | None]:
+        """
+        Args: 
+            node (Node): current node to calculate the minmax value
+            maximize (bool): True or False whether minimax should maximize or minimize the children's values 
+            alpha (int): best achievable max value up to this point
+            beta (int): best achievable min value up to this point
+        Returns: 
+            int: best value based on min or max
+            int: respective column that led to the node with the best value 
+        """
+        if current_depth == max_depth:
+            return node.value, None
+        
+        board = node.board
+
+        if not any(board.is_valid(col) for col in range(board.width)):
+            return node.value, None
+
+        if maximize:
+            temp_value_pair = (-np.inf, None)
+
+            for col in range(board.width):
+                if board.is_valid(col):
+                    new_board: Board = board.get_new_board(col, player_id)
+                    node_value: int = self.heuristic.evaluate_board(self.player_id, new_board)
+                    child = Node(new_board, node_value, col)
+                    
+                    next_player = 2 if player_id == 1 else 1
+                    minimax_value, _ = self._minimax(child, False, alpha, beta, current_depth +1, max_depth, next_player)
+
+                    candidate = (minimax_value, col)
+                    temp_value_pair = max(temp_value_pair, candidate, key=lambda pair: pair[0])
+    
+                    if temp_value_pair[0] >= beta:
+                        return temp_value_pair
+    
+                    alpha = max(alpha, temp_value_pair[0])
+                else:
+                    continue
+            return temp_value_pair
+
+        else:
+            temp_value_pair = (np.inf, None)
+    
+            for col in range(board.width):
+                if board.is_valid(col):
+                    new_board: Board = board.get_new_board(col, player_id)
+                    node_value: int = self.heuristic.evaluate_board(self.player_id, new_board)
+                    child = Node(new_board, node_value, col)
+
+                    next_player = 2 if player_id == 1 else 1
+
+                    minimax_value, _ = self._minimax(child, True, alpha, beta, current_depth +1, max_depth, next_player)
+
+                    candidate = (minimax_value, col)
+                    temp_value_pair = min(temp_value_pair, candidate, key=lambda pair: pair[0])
+
+                    if temp_value_pair[0] <= alpha:
+                        return temp_value_pair
+
+                    beta = min(beta, temp_value_pair[0])
+                else:
+                    continue
+            return temp_value_pair
 
 
 class HumanPlayer(PlayerController):
