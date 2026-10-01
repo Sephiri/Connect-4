@@ -310,7 +310,7 @@ class MonteCarloPlayer(PlayerController):
         creating the tree structure for MC
         Args:
             node (MCNode): starting node, from which MonteCarlo algorithm starts
-            player_id (int): the player which turn it is
+            player_id (int): the player whose turn it is
         """
         board = node.board
 
@@ -340,7 +340,7 @@ class MonteCarloPlayer(PlayerController):
             return   
 
         # select one of the children, if all have been simulated once
-        uct_selected: MCNode = self._select_move(node)
+        uct_selected: MCNode = self._select_move(node, player_id)
         next_player = 2 if player_id == 1 else 1
         self._build_tree(uct_selected, next_player)  
 
@@ -391,7 +391,7 @@ class MonteCarloPlayer(PlayerController):
         return
 
 
-    def _select_move(self, node: MCNode) -> MCNode:
+    def _select_move(self, node: MCNode, player_id: int) -> MCNode:
         """
         choose based on UCT selection formula:
         w/n + c * sqrt(ln(N)/n)
@@ -400,6 +400,10 @@ class MonteCarloPlayer(PlayerController):
         n: number of times selected node has been visited
         N: number of times parent node has been visited
         c: exploration parameter (hier = 1)
+        
+        Args:
+            node (MCNode): node which children need to be evaluated to pick the best option
+            player_id (int): player whose turn it is in the simulation
         """
         c: float = 2.0
 
@@ -411,7 +415,12 @@ class MonteCarloPlayer(PlayerController):
             w = child.total_reward
             N = node.visits
 
-            temp = w / n + c * np.sqrt(np.log(N) / n)
+            exploitation = w / n
+            
+            if player_id != self.player_id:
+                exploitation = -exploitation
+            
+            temp = exploitation + c * np.sqrt(np.log(N) / n)
 
             if temp > best_value:
                 best_value = temp
