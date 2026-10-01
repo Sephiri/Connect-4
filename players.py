@@ -112,10 +112,10 @@ class MinMaxPlayer(PlayerController):
         return max_move
 
     def _build_tree(self, node: Node, current_depth: int, max_depth: int, player_id: int) -> None: 
-        if current_depth == max_depth: 
-            return 
-
         board = node.board
+        
+        if (current_depth == max_depth or winning(node.board.get_board_state(), self.game_n) != 0):
+            return 
 
         for col in range(board.width):
             if board.is_valid(col):
@@ -198,7 +198,7 @@ class AlphaBetaPlayer(PlayerController):
             int: best value based on min or max
             int: respective column that led to the node with the best value 
         """
-        if current_depth == max_depth:
+        if (current_depth == max_depth or winning(node.board.get_board_state(), self.game_n) != 0):
             return node.value, None
         
         board = node.board
@@ -310,9 +310,14 @@ class MonteCarloPlayer(PlayerController):
         creating the tree structure for MC
         Args:
             node (MCNode): starting node, from which MonteCarlo algorithm starts
-            player_id (int): which players turn is it
+            player_id (int): the player which turn it is
         """
         board = node.board
+
+        if winning(board.get_board_state(), self.game_n) != 0:
+            result = self._simulate_game(board, player_id)
+            self._set_values(node, result)
+            return
 
         visited_moves = {child.move for child in node.children}
         legal_moves = [col for col in range(board.width) if board.is_valid(col)]
@@ -335,7 +340,7 @@ class MonteCarloPlayer(PlayerController):
             return   
 
         # select one of the children, if all have been simulated once
-        uct_selected = self._select_move(node)
+        uct_selected: MCNode = self._select_move(node)
         next_player = 2 if player_id == 1 else 1
         self._build_tree(uct_selected, next_player)  
 
