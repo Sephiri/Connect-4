@@ -1,10 +1,8 @@
 from heuristics import Heuristic, SimpleHeuristic
-from players import PlayerController, HumanPlayer, MinMaxPlayer, AlphaBetaPlayer
+from players import PlayerController, HumanPlayer, MinMaxPlayer, AlphaBetaPlayer, MonteCarloPlayer
 from board import Board
 from typing import List
-import numpy as np
-from numba import jit
-
+from utils import winning
 
 def start_game(game_n: int, board: Board, players: List[PlayerController]) -> int:
     """Starting a game and handling the game logic
@@ -23,6 +21,8 @@ def start_game(game_n: int, board: Board, players: List[PlayerController]) -> in
 
     # Main game loop
     while winner == 0:
+        print(board.get_board_state())
+        print(board)
         current_player: PlayerController = players[current_player_index]
         move: int = current_player.make_move(board)
 
@@ -46,83 +46,6 @@ def start_game(game_n: int, board: Board, players: List[PlayerController]) -> in
     return winner
 
 
-@jit(nopython=True, cache=True)
-def winning(state: np.ndarray, game_n: int) -> int:
-    """Determines whether a player has won, and if so, which one
-
-    Args:
-        state (np.ndarray): the board to check
-        game_n (int): n in a row required to win
-
-    Returns:
-        int: 1 or 2 if the respective player won, -1 if the game is a draw, 0 otherwise
-    """
-    player: int
-    counter: int
-
-    # Vertical check
-    for col in state:
-        counter = 0
-        player = -1
-        for field in col[::-1]:
-            if field == 0:
-                break
-            elif field == player:
-                counter += 1
-                if counter >= game_n:
-                    return player
-            else:
-                counter = 1 
-                player = field
-            
-    # Horizintal check
-    for row in state.T:
-        counter = 0
-        player = -1
-        for field in row:
-            if field == 0:
-                counter = 0
-                player = -1
-            elif field == player:
-                counter += 1
-                if counter >= game_n:
-                    return player
-            else:
-                counter = 1
-                player = field
-
-    # Ascending diagonal check
-    for i, col in enumerate(state[:- game_n + 1]):
-        for j, field in enumerate(col[game_n - 1:]):
-            if field == 0:
-                continue
-            player = field
-            for x in range(game_n):
-                if state[i + x, j + game_n - 1 - x] != player:
-                    player = -1
-                    break
-            if player != -1:
-                return player
-            
-    # Descending diagonal check
-    for i, col in enumerate(state[game_n - 1:]):
-        for j, field in enumerate(col[game_n - 1:]):
-            if field == 0:
-                continue
-            player = field
-            for x in range(game_n):
-                if state[i + game_n - 1 - x, j + game_n - 1 - x] != player:
-                    player = -1
-                    break
-            if player != -1:
-                return player
-        
-    # Check for a draw
-    if np.all(state[:, 0]):
-        return -1 # The board is full, game is a draw
-
-    return 0 # Game is not over 
-
 def _ask_player(number: int) -> int:
     try:
         choice: int = int(input(
@@ -130,9 +53,10 @@ def _ask_player(number: int) -> int:
             "1 - Human\n"
             "2 - MinMax\n"
             "3 - AlphaBeta\n"
+            "4 - MonteCarlo\n"
         ))
 
-        assert 1 <= choice <= 3
+        assert 1 <= choice <= 4
         print("You chose", choice)
         return choice
 
@@ -141,7 +65,7 @@ def _ask_player(number: int) -> int:
         return _ask_player(number)
 
     except AssertionError:
-        print("Please enter 1,2 or 3.\n")
+        print("Please enter 1,2,3 or 4.\n")
         return _ask_player(number)
 
 def get_players(game_n: int) -> List[PlayerController]:
@@ -174,6 +98,13 @@ def get_players(game_n: int) -> List[PlayerController]:
     alphabetaplayer1: PlayerController = AlphaBetaPlayer(1, game_n, depth, heuristic1)
     alphabetaplayer2: PlayerController = AlphaBetaPlayer(2, game_n, depth, heuristic2)
 
+    # MCPlayer
+
+    max_simulations = 1000
+
+    mcplayer1: PlayerController = MonteCarloPlayer(1, game_n, max_simulations, heuristic1)
+    mcplayer2: PlayerController = MonteCarloPlayer(2, game_n, max_simulations, heuristic2)
+
     player1value = _ask_player(1)
     player2value = _ask_player(2)
 
@@ -184,6 +115,8 @@ def get_players(game_n: int) -> List[PlayerController]:
             player1 = minmaxplayer1
         case 3: 
             player1 = alphabetaplayer1
+        case 4: 
+            player1 = mcplayer1
         case _:
             print("Invalid player") 
 
@@ -194,6 +127,8 @@ def get_players(game_n: int) -> List[PlayerController]:
             player2 = minmaxplayer2
         case 3: 
             player2 = alphabetaplayer2
+        case 4: 
+            player2 = mcplayer2
         case _:
             print("Invalid player") 
 

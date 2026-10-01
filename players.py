@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from heuristics import Heuristic
     from board import Board
-
+import random
+from utils import winning
 
 class PlayerController:
     """Abstract class defining a player
@@ -251,6 +252,167 @@ class AlphaBetaPlayer(PlayerController):
                 else:
                     continue
             return temp_value_pair
+
+class MCNode():
+    """
+    data structure for MonteCarlo player
+    """
+    def __init__(self, board: Board, total_reward: int = 0, visits: int = 0, parent: MCNode | None = None, move: int | None = None) -> None:
+        self.board = board
+        self.total_reward = total_reward
+        self.visits = visits
+        self.parent = parent
+        self.children: list["MCNode"] = []
+        self.move = move
+
+
+class MonteCarloPlayer(PlayerController):
+    def __init__(self, player_id: int, game_n: int, max_simulations: int, heuristic: Heuristic) -> None:
+            """
+            Args:
+                player_id (int): id of a player, can take values 1 or 2 (0 = empty)
+                game_n (int): n in a row required to win
+                max_simulations (int): the max number of simulated gameplays
+                heuristic (Heuristic): heuristic used by the player
+            """
+            super().__init__(player_id, game_n, heuristic)
+            self.max_simulations: int = max_simulations
+
+    def make_move(self, board: Board) -> int:
+        root_node: MCNode = MCNode(board)
+        simulations = self.max_simulations 
+        
+        while simulations != 0:
+            self._build_tree(root_node, self.player_id)
+            simulations-= 1
+
+        return self._choose_move(root_node)
+
+    def _choose_move(self, node: MCNode) -> int:
+        """
+        chooses the best move based on the winning rate (total_reward/visits) for each node
+        Args:
+            node (MCNode): current node from which point onward the functions decide which child to pick 
+        Return:
+            int: which column to choose for next move
+        """
+        result = -np.inf
+        move = 0
+        for child in node.children:
+            temp = child.total_reward / child.visits
+            if temp >= result: 
+                result = temp
+                move = child.move
+        return move
+
+    def _build_tree(self, node: MCNode, player_id: int) -> None:
+        """
+        creating the tree structure for MC
+        Args:
+            node (MCNode): starting node, from which MonteCarlo algorithm starts
+            player_id (int): which players turn is it
+        """
+        board = node.board
+
+        visited_moves = {child.move for child in node.children}
+        legal_moves = [col for col in range(board.width) if board.is_valid(col)]
+        unvisited_moves = [move for move in legal_moves if move not in visited_moves]
+
+        if unvisited_moves: 
+            # choose random unvisited child
+            col = random.choice(unvisited_moves)
+
+            # create child
+            child_board = board.get_new_board(col, player_id)
+            child: MCNode = MCNode(child_board, parent=node, move=col)
+            node.children.append(child)
+
+            # gameplay simulation
+            result = self._simulate_game(child_board, player_id)
+
+            # backprop
+            self._set_values(child, result) 
+            return   
+
+        # select one of the children, if all have been simulated once
+        uct_selected = self._select_move(node)
+        next_player = 2 if player_id == 1 else 1
+        self._build_tree(uct_selected, next_player)  
+
+    def _simulate_game(self, node_board: Board, player_id: int) -> int:
+        """
+        Args:
+            node_board (Board): current board from which the gameplay is simulated with random moves
+            player_id (int): the player who just made a move
+        Return:
+            int: to which result does this simulation lead to 
+        """
+        winner = winning(node_board.get_board_state(), self.game_n)
+        # as long as there is no winner, keep on doing random moves
+        if winner == 0:
+            next_player = 2 if player_id == 1 else 1
+    
+            # random move of adversary player
+            random_move = None
+            while random_move is None:
+                random_choice = random.choice(range(node_board.width))
+                if node_board.is_valid(random_choice):
+                    random_move = random_choice
+                    next_child_board = node_board.get_new_board(random_move, next_player)
+            return self._simulate_game(next_child_board, next_player)
+        
+        # return 1 for win, 0 for draw and -1 for loss
+        if winner == self.player_id:
+            return 1
+        if winner == -1: # draw
+            return 0
+        else:
+            return -1
+
+    def _set_values(self, child: MCNode, result: int) -> None:
+        """
+        include the results in the nodes variables and backpropagate it upwards on the tree
+        Args:
+            child (MCNode): the node on which a gameplay was simulated
+            result (int): result of the last simulation
+        """
+        child.visits += 1
+        if result == 1: 
+            child.total_reward += 1
+        if result == -1:
+            child.total_reward -= 1
+        if child.parent != None:
+            self._set_values(child.parent, result)
+        return
+
+
+    def _select_move(self, node: MCNode) -> MCNode:
+        """
+        choose based on UCT selection formula:
+        w/n + c * sqrt(ln(N)/n)
+
+        w: total reward with regard to wins and loses
+        n: number of times selected node has been visited
+        N: number of times parent node has been visited
+        c: exploration parameter (hier = 1)
+        """
+        c: float = 2.0
+
+        best_child = None
+        best_value = -np.inf
+
+        for child in node.children:
+            n = child.visits
+            w = child.total_reward
+            N = node.visits
+
+            temp = w / n + c * np.sqrt(np.log(N) / n)
+
+            if temp > best_value:
+                best_value = temp
+                best_child = child
+
+        return best_child
 
 
 class HumanPlayer(PlayerController):
