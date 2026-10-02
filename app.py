@@ -1,4 +1,4 @@
-from heuristics import Heuristic, SimpleHeuristic
+from heuristics import Heuristic, SimpleHeuristic, ExpandedHeuristic
 from players import PlayerController, HumanPlayer, MinMaxPlayer, AlphaBetaPlayer, MonteCarloPlayer
 from board import Board
 from typing import List
@@ -80,8 +80,11 @@ def get_players(game_n: int) -> List[PlayerController]:
     Returns:
         List[PlayerController]: list with two players
     """
-    heuristic1: Heuristic = SimpleHeuristic(game_n)
-    heuristic2: Heuristic = SimpleHeuristic(game_n)
+    #heuristic1: Heuristic = SimpleHeuristic(game_n)
+    #heuristic2: Heuristic = SimpleHeuristic(game_n)
+
+    heuristic1: Heuristic = ExpandedHeuristic(game_n)
+    heuristic2: Heuristic = ExpandedHeuristic(game_n)
 
     human1: PlayerController = HumanPlayer(1, game_n, heuristic1)
     human2: PlayerController = HumanPlayer(2, game_n, heuristic2)
